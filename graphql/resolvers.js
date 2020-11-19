@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 
+const authController = require('../controllers/auth.controller');
 const productsController = require('../controllers/products.controller');
 const cartsController = require('../controllers/carts.controller');
 const searchController = require('../controllers/search.controller');
@@ -42,6 +43,22 @@ const resolvers = {
             return {
                 token
             }
+        },
+        register: async (parent, { email, password }, context, info) => {
+            const user = await authController.findOne(email);
+            console.log('user', user);
+
+            if (user) {
+                return {
+                    token: 'ERROR USER EXISTS'
+                }
+            }
+
+            await authController.create(email, password);
+
+            return {
+                token: 'SUCCESS'
+            } 
         },
         addToCart: async (parent, { productId, quantity }, context, info) => {
             return await cartsController.addToCart(productId, quantity);

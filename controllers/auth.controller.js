@@ -1,4 +1,4 @@
-const connection = require('../database');
+const pool = require('../database');
 
 exports.findAll = (req, res) => {
     const params = [];
@@ -19,31 +19,38 @@ exports.findAll = (req, res) => {
     });
 };
 
-exports.create = (req, res) => {
-    connection.query('INSERT INTO products (name, unit_price) VALUES (?, ?)', [req.body.name, req.body.unit_price], (err, results) => {
-        if (err) {
-            console.log('error: ', err);
-            res.send(err);
-            return;
-        }
+exports.create = async (email, password) => {
+    const data = {
+        email,
+        password
+    }
 
-        res.json({
-            message: 'Product successfully created.'
-        });
-    });
+    try {
+        let [results] = await pool.query('INSERT INTO user SET ?', data);
+
+        return results;
+    } catch(error) {
+        console.log('error: ', error);
+        return error;
+    }
 };
 
-exports.findOne = (req, res) => {
-    connection.query('SELECT * FROM products WHERE id = ?', req.params.productId, (err, results) => {
-        if (err) {
-            console.log('error: ', err);
-            res.send(err);
-            return;
-        }
+exports.findOne = async (email) => {
+    try {
+        let [results] = await pool.query(`
+            SELECT
+                *
+            FROM
+                user
+            WHERE
+                email = ?
+        `, email);
 
-        let [product] = results;
-        res.json(product);
-    });
+        return results[0] || null;
+    } catch(error) {
+        console.log('error: ', error);
+        return error;
+    }
 };
 
 exports.delete = (req, res) => {

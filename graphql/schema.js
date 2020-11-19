@@ -32,6 +32,7 @@ const typeDefs = gql`
     type Mutation {
         createUser(email: String!, password: String!): AuthPayload!
         login(email: String!, password: String!): AuthPayload!
+        register(email: String!, password: String!): AuthPayload!
         addToCart(productId: Int!, quantity: Int!): Cart
     }
 
