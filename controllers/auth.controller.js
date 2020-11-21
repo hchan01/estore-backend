@@ -44,7 +44,7 @@ exports.findOne = async (email) => {
                 user
             WHERE
                 email = ?
-        `, email);
+        `, [email]);
 
         return results[0] || null;
     } catch(error) {

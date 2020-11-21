@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const authController = require('../controllers/auth.controller');
 const productsController = require('../controllers/products.controller');
@@ -28,16 +29,15 @@ const resolvers = {
         createUser: (parent, { email, password }, context, info) => {
             
         },
-        login: (parent, { email, password }, context, info) => {
+        login: async (parent, { email, password }, context, info) => {
+            const user = await authController.findOne(email);
+
+            const valid = bcrypt.compareSync(password, user.password);
+
             const token = jwt.sign(
-                {
-                    id: 'test',
-                    email: 'dsfds'
-                },
+                { id: user.id, email: user.email },
                 process.env.JWT_SECRET,
-                {
-                    expiresIn: '1d'
-                }
+                { expiresIn: '1d' }
             )
 
             return {
@@ -54,7 +54,7 @@ const resolvers = {
                 }
             }
 
-            await authController.create(email, password);
+            await authController.create(email, bcrypt.hashSync(password, 10));
 
             return {
                 token: 'SUCCESS'
