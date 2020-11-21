@@ -1,72 +1,257 @@
-const { gql } = require('apollo-server-express');
+const { nexusPrisma } = require('nexus-plugin-prisma');
+const { objectType, stringArg, intArg, makeSchema } = require('@nexus/schema');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
-const typeDefs = gql`
-    type Query {
-        search(searchTerm: String!): [Product]
-        product(productId: Int!): Product
-        products(categoryId: Int): [Product]
-        cart: [BasketItem]
-        order(orderId: Int!): Order
+const AuthPayload = objectType({
+    name: "AuthPayload",
+    definition(t) {
+        t.string("token")
     }
-
-    type Product {
-        id: ID!
-        name: String!
-        brand: String
-        unitPrice: Float!
-        image: String
-        slug: String
-        categoryId: Int
+})
+const CartLineItem = objectType({
+    name: "CartLineItem",
+    definition(t) {
+        t.model.id()
+        t.model.cartId()
+        t.model.productId()
+        t.model.quantity()
+        t.model.product()
     }
-
-    type BasketItem {
-        id: ID!
-        name: String!
-        quantity: Int!
-        unitPrice: Float!
-        slug: String
-        image: String
-        totalPrice: Float!
+})
+const Cart = objectType({
+    name: "Cart",
+    definition(t) {
+        t.model.id()
+        t.model.userId()
+        t.model.cartLineItem()
     }
+})
+const Mutation = objectType({
+    name: "Mutation",
+    definition(t) {
+        t.field("createUser", {
+            type: AuthPayload,
+            args: {
+                email: stringArg({
+                    required: true
+                }),
+                password: stringArg({
+                    required: true
+                }),
+            },
+            resolve: async (_, args, ctx) => {
+                const user = await ctx.prisma.user.findOne({
+                    where: {
+                        email: args.email
+                    }
+                });
 
-    type Mutation {
-        createUser(email: String!, password: String!): AuthPayload!
-        login(email: String!, password: String!): AuthPayload!
-        register(email: String!, password: String!): AuthPayload!
-        addToCart(productId: Int!, quantity: Int!): Cart
+                if (user) {
+                    return {
+                        token: 'ERROR USER EXISTS'
+                    }
+                }
+
+                await ctx.prisma.user.create({
+                    data: {
+                        email: args.email,
+                        password: bcrypt.hashSync(args.password, 10)
+                    }
+                });
+
+                return {
+                    token: 'SUCCESS'
+                } 
+            }
+        })
+
+        t.field("login", {
+            type: AuthPayload,
+            args: {
+                email: stringArg({
+                    required: true
+                }),
+                password: stringArg({
+                    required: true
+                }),
+            },
+            resolve: async (_, args, ctx) => {
+                const user = await ctx.prisma.user.findOne({
+                    where: {
+                        email: args.email
+                    }
+                });
+
+                const valid = bcrypt.compareSync(args.password, user.password);
+
+                if (!valid) {
+                    return {
+                        token: 'invalid details'
+                    }
+                }
+
+                const token = jwt.sign(
+                    { id: user.id, email: user.email },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '1d' }
+                )
+
+                return {
+                    token
+                }
+            }
+        })
+
+        t.field("addToCart", {
+            type: Cart,
+            nullable: true,
+            args: {
+                productId: intArg({
+                    required: true
+                }),
+                quantity: intArg({
+                    required: true
+                }),
+            },
+            resolve: async (_, args, ctx) => {
+                await ctx.prisma.cartLineItem.create({
+                    data: {
+                        quantity: args.quantity,
+                        cart: {
+                            connect: {
+                                id: 1
+                            }
+                        },
+                        product: {
+                            connect: {
+                                id: args.productId
+                            }
+                        }
+                    }
+                });
+
+                return {
+                    id: 1
+                }
+            }
+        })
     }
-
-    type User {
-        id: Int!
-        email: String!
+})
+const Order = objectType({
+    name: "Order",
+    definition(t) {
+        t.model.id()
+        t.model.orderLineItem()
     }
-
-    type AuthPayload {
-        token: String!
+})
+const OrderLineItem = objectType({
+    name: "OrderLineItem",
+    definition(t) {
+        t.model.id()
+        t.model.productId()
+        t.model.quantity()
+        t.model.unitPrice()
+        t.model.totalPrice()
     }
-
-    type Order {
-        id: String!
-        totalPrice: Float!
-        lineItems: [OrderLineItem]
+})
+const Product = objectType({
+    name: "Product",
+    definition(t) {
+        t.model.id()
+        t.model.name()
+        t.model.brand()
+        t.model.unitPrice()
+        t.model.image()
+        t.model.slug()
+        t.model.categoryId()
     }
+})
+const Query = objectType({
+    name: "Query",
+    definition(t) {
+        t.crud.product()
+        t.crud.products({ pagination: true, filtering: true })
 
-    type OrderLineItem {
-        id: Int!
-        productId: Int!
-        quantity: Int!
-        unitPrice: Float!
-        totalPrice: Float!
+        t.crud.cart()
+        t.crud.carts({ pagination: true, filtering: true })
+
+        t.crud.order()
+        t.crud.orders({ pagination: true, filtering: true })
+
+        t.crud.user()
+        t.crud.users({ pagination: true, filtering: true })
+
+        t.field("search", {
+            type: Product,
+            list: [false],
+            nullable: true,
+            args: {
+                searchTerm: stringArg({
+                    required: true
+                }),
+            },
+            resolve: (_, args, ctx) => {
+                return ctx.prisma.product.findMany({
+                    where: {
+                        name: { contains: args.searchTerm }
+                    }
+                })
+            }
+        })
     }
-
-    type addToCartInput {
-        productId: Int!
-        quantity: Int!
+})
+const User = objectType({
+    name: "User",
+    definition(t) {
+        t.model.id()
+        t.model.email()
+        t.model.password()
+        t.model.firstName()
+        t.model.lastName()
     }
-
-    type Cart {
-        id: Int!
+})
+const addToCartInput = objectType({
+    name: "addToCartInput",
+    definition(t) {
+        t.int("productId")
+        t.int("quantity")
     }
-`
+})
 
-module.exports = typeDefs
+const schema = makeSchema({
+    types: {
+        Query,
+        AuthPayload,
+        Cart,
+        CartLineItem,
+        Mutation,
+        Order,
+        OrderLineItem,
+        Product,
+        Query,
+        User,
+        addToCartInput
+    },
+    plugins: [nexusPrisma({ experimentalCRUD: true })],
+    outputs: {
+        schema: __dirname + '/schema.graphql'
+    },
+    typegenAutoConfig: {
+        contextType: 'Context.Context',
+        sources: [
+            {
+                source: '@prisma/client',
+                alias: 'prisma',
+            },
+            {
+                source: require.resolve('./context'),
+                alias: 'Context',
+            },
+        ]
+    },
+})
+
+module.exports = {
+    schema
+}
