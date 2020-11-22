@@ -4,14 +4,14 @@ if (process.env.NODE_ENV !== 'production') {
 
 const express = require('express');
 const { ApolloServer } = require('apollo-server-express');
-const typeDefs = require('./graphql/schema');
-const resolvers = require('./graphql/resolvers');
+const { schema } = require('./graphql/schema');
+const { createContext } = require('./graphql/context');
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const server = new ApolloServer({ typeDefs, resolvers });
+const server = new ApolloServer({ schema, context: createContext });
 server.applyMiddleware({ app });
 
 app.use((req, res) => {
