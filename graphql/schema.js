@@ -182,6 +182,9 @@ const Query = objectType({
         t.crud.user()
         t.crud.users({ pagination: true, filtering: true })
 
+        t.crud.testimonial();
+        t.crud.testimonials({ pagination: true, filtering: true });
+
         t.field("search", {
             type: Product,
             list: [false],
@@ -211,6 +214,15 @@ const User = objectType({
         t.model.lastName()
     }
 })
+const Testimonial = objectType({
+    name: "Testimonial",
+    definition(t) {
+        t.model.id()
+        t.model.firstName()
+        t.model.lastName()
+        t.model.review()
+    }
+})
 const addToCartInput = objectType({
     name: "addToCartInput",
     definition(t) {
@@ -231,7 +243,8 @@ const schema = makeSchema({
         Product,
         Query,
         User,
-        addToCartInput
+        addToCartInput,
+        Testimonial
     },
     plugins: [nexusPrisma({ experimentalCRUD: true })],
     outputs: {

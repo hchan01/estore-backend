@@ -9,7 +9,7 @@ datasource db {
 
 model Cart {
   id               Int            @id @default(autoincrement())
-  userId           Int            @default(0) @map("user_id")
+  userId           Int            @map("user_id")
   createdDate      DateTime       @default(now()) @map("created_date")
   lastModifiedDate DateTime       @default(now()) @map("last_modified_date")
   cartLineItem     CartLineItem[] @relation("cartTocart_line_item")
@@ -34,7 +34,7 @@ model CartLineItem {
 
 model Category {
   id               Int      @id @default(autoincrement())
-  name             String   @default("0")
+  name             String
   createdDate      DateTime @default(now()) @map("created_date")
   lastModifiedDate DateTime @default(now()) @map("last_modified_date")
 
@@ -67,10 +67,10 @@ model OrderLineItem {
 
 model User {
   id               Int      @id @default(autoincrement())
-  email            String   @unique @default("0")
+  email            String   @unique
   password         String
-  firstName        String   @default("0") @map("first_name")
-  lastName         String   @default("0") @map("last_name")
+  firstName        String?  @map("first_name")
+  lastName         String?  @map("last_name")
   createdDate      DateTime @default(now()) @map("created_date")
   lastModifiedDate DateTime @default(now()) @map("last_modified_date")
 
@@ -85,11 +85,20 @@ model Product {
   description      String?
   image            String?
   slug             String?
-  categoryId       Int            @default(0) @map("category_id")
+  categoryId       Int?           @map("category_id")
   inventory        Int            @default(0)
   createdDate      DateTime       @default(now()) @map("created_date")
   lastModifiedDate DateTime       @default(now()) @map("last_modified_date")
   cart_line_item   CartLineItem[] @relation("cart_line_itemToproduct")
 
   @@map("product")
+}
+
+model Testimonial {
+  id        Int    @id @default(autoincrement())
+  firstName String @map("first_name")
+  lastName  String @map("last_name")
+  review    String
+
+  @@map("testimonials")
 }
