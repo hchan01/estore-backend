@@ -11,7 +11,7 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-const server = new ApolloServer({ schema, context: createContext });
+const server = new ApolloServer({ schema, context: createContext, debug: false });
 server.applyMiddleware({ app });
 
 app.use((req, res) => {
