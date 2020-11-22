@@ -6,6 +6,8 @@ const bcrypt = require('bcryptjs');
 const AuthPayload = objectType({
     name: "AuthPayload",
     definition(t) {
+        t.string("id")
+        t.string("email")
         t.string("token")
     }
 })
@@ -30,6 +32,8 @@ const Cart = objectType({
 const Mutation = objectType({
     name: "Mutation",
     definition(t) {
+        t.crud.updateOneUser({ alias: 'updateUser' })
+
         t.field("createUser", {
             type: AuthPayload,
             args: {
@@ -41,27 +45,33 @@ const Mutation = objectType({
                 }),
             },
             resolve: async (_, args, ctx) => {
-                const user = await ctx.prisma.user.findOne({
+                const existingUser = await ctx.prisma.user.findOne({
                     where: {
                         email: args.email
                     }
                 });
 
-                if (user) {
-                    return {
-                        token: 'ERROR USER EXISTS'
-                    }
+                if (existingUser) {
+                    throw new Error('EMAIL_TAKEN');
                 }
 
-                await ctx.prisma.user.create({
+                const user = await ctx.prisma.user.create({
                     data: {
                         email: args.email,
                         password: bcrypt.hashSync(args.password, 10)
                     }
                 });
 
+                const token = jwt.sign(
+                    { id: user.id, email: user.email },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '1d' }
+                )
+
                 return {
-                    token: 'SUCCESS'
+                    id: user.id,
+                    email: user.email,
+                    token
                 } 
             }
         })
@@ -83,12 +93,14 @@ const Mutation = objectType({
                     }
                 });
 
+                if (!user) {
+                    throw new Error('INCORRECT_DETAILS');
+                }
+
                 const valid = bcrypt.compareSync(args.password, user.password);
 
                 if (!valid) {
-                    return {
-                        token: 'invalid details'
-                    }
+                    throw new Error('INCORRECT_DETAILS');
                 }
 
                 const token = jwt.sign(
@@ -183,7 +195,7 @@ const Query = objectType({
         t.crud.users({ pagination: true, filtering: true })
 
         t.crud.testimonial();
-        t.crud.testimonials({ pagination: true, filtering: true });
+        t.crud.testimonials({ pagination: true, filtering: true })
 
         t.field("search", {
             type: Product,
